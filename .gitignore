@@ -1,0 +1,33 @@
+# Compiled binaries
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go build artifacts
+*.test
+*.out
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+
+# Discovery files (generated at runtime)
+/tmp/gemini/
+
+# Go vendor directory
+vendor/
+
+# Go module download cache
+go.sum.backup
