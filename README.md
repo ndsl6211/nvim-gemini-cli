@@ -37,8 +37,10 @@ For detailed architecture information, see [docs/architecture.md](docs/architect
   build = 'cd server && go build -o ../bin/gemini-mcp-server',
   config = function()
     require('gemini-cli').setup({
-      -- Optional configuration
-      allow_w_to_accept = false,  -- Set to true to accept diffs with :w
+      -- Auto-setup default keymaps (<leader>gc, <leader>gs)
+      setup_keymaps = true,
+      -- Set to true to accept diffs with :w in the diff window
+      allow_w_to_accept = true,
       log_level = 'info',
     })
   end,
@@ -60,59 +62,63 @@ use {
 ### Manual Installation
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/yourusername/nvim-gemini-cli.git ~/.config/nvim/pack/plugins/start/nvim-gemini-cli
    ```
 
 2. Build the MCP server:
+
    ```bash
    cd ~/.config/nvim/pack/plugins/start/nvim-gemini-cli/server
    go build -o ../bin/gemini-mcp-server
    ```
 
 3. Add to your `init.lua`:
+
    ```lua
    require('gemini-cli').setup()
    ```
 
-## Usage
+## Keymaps
 
-### Basic Workflow
+The plugin provides customizable keymaps via `<Plug>` mappings and Lua functions.
 
-1. Start Neovim
-2. The plugin automatically starts the MCP server in the background
-3. Open a terminal (in Neovim with `:terminal` or in a separate terminal window)
-4. Run `gemini-cli` - it will automatically detect and connect to your Neovim instance
-5. Ask Gemini to edit code - changes will appear as a diff in Neovim
+### Default Keymaps
 
-### Working with Diffs
+If `setup_keymaps = true` (default), the following mappings are created:
 
-When Gemini CLI suggests code changes:
+-   `<leader>gc` : Toggle Gemini Chat terminal
+-   `<leader>gs` : Show Gemini Status
 
-1. **Diff window opens automatically** in Neovim showing:
-   - Left side: Original code
-   - Right side: Suggested changes (editable)
+### Customizing Keymaps
 
-2. **Review and edit** the suggested changes in the diff window
+You can manually map keys to the provided `<Plug>` mappings or Lua functions:
 
-3. **Accept changes** using one of two methods:
-   - **Option A**: Press `:w` in the diff window (if `allow_w_to_accept = true`)
-   - **Option B**: Press `1` in the Gemini CLI prompt to accept
+**Using Lua Functions (Telescope Style):**
 
-4. **Reject changes**: Press `2` in the Gemini CLI prompt
+```lua
+-- Normal mode mapping
+vim.keymap.set('n', '<leader>ff', function() require('gemini-cli.terminal').toggle() end)
+```
 
-### Commands
+**Using `<Plug>` Mappings:**
 
-- `:GeminiStatus` - Show MCP server connection status and port
-- `:GeminiRestart` - Restart the MCP server
-- `:GeminiStop` - Stop the MCP server
-- `:GeminiChat` - Toggle Gemini chat terminal (opens a terminal running `gemini`)
+```lua
+-- This will automatically override the default <leader>gc
+vim.keymap.set('n', '<C-g>', '<Plug>(GeminiChat)')
+```
 
-> **Tip**: After opening `:GeminiChat` for the first time, run `/ide enable` in Gemini to automatically connect to Neovim on future sessions.
+Available `<Plug>` mappings:
+
+-   `<Plug>(GeminiChat)`
+-   `<Plug>(GeminiStatus)`
+-   `<Plug>(GeminiRestart)`
+-   `<Plug>(GeminiStop)`
 
 ## Configuration
 
-Full configuration options:
+Full configuration options with their default values:
 
 ```lua
 require('gemini-cli').setup({
@@ -128,9 +134,12 @@ require('gemini-cli').setup({
   -- Maximum number of open files to track
   max_open_files = 10,
   
-  -- Allow :w in diff window to accept changes
-  -- If false, you must accept via CLI prompt
-  allow_w_to_accept = false,
+  -- Allow :w in diff window to automatically accept and save changes
+  -- If true, pressing :w in the diff buffer accepts the suggestions.
+  allow_w_to_accept = true,
+
+  -- Automatically setup default keymaps (<leader>gc, <leader>gs)
+  setup_keymaps = true,
 })
 ```
 
@@ -140,8 +149,8 @@ require('gemini-cli').setup({
 
 Controls how you accept diff changes:
 
-- `false` (default): You must go back to the Gemini CLI terminal and press `1` to accept
-- `true`: Pressing `:w` in the diff window automatically accepts and applies changes
+-   `true` (default): Pressing `:w` in the diff window automatically applies changes to the original file, saves it to disk, and notifies Gemini CLI.
+-   `false`: `:w` in the diff buffer only updates the buffer state without saving to disk or notifying the server. You must accept changes via the Gemini CLI prompt.
 
 Choose based on your workflow:
 - Set to `false` if you want explicit control via CLI
