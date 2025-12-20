@@ -88,8 +88,9 @@ The plugin provides customizable keymaps via `<Plug>` mappings and Lua functions
 
 If `setup_keymaps = true` (default), the following mappings are created:
 
--   `<leader>gc` : Toggle Gemini Chat terminal
--   `<leader>gs` : Show Gemini Status
+- `<leader>gc` : Toggle Gemini Chat terminal
+- `<leader>ga` : Send current file or selection to Gemini (Send/Append)
+- `<leader>gs` : Show Gemini Status
 
 ### Customizing Keymaps
 
@@ -111,10 +112,11 @@ vim.keymap.set('n', '<C-g>', '<Plug>(GeminiChat)')
 
 Available `<Plug>` mappings:
 
--   `<Plug>(GeminiChat)`
--   `<Plug>(GeminiStatus)`
--   `<Plug>(GeminiRestart)`
--   `<Plug>(GeminiStop)`
+- `<Plug>(GeminiChat)`
+- `<Plug>(GeminiSend)`
+- `<Plug>(GeminiStatus)`
+- `<Plug>(GeminiRestart)`
+- `<Plug>(GeminiStop)`
 
 ## Configuration
 

@@ -275,4 +275,26 @@ function M.get_bufnr()
     return nil
 end
 
+---Send text directly to the terminal's stdin
+---@param text string The text to send
+---@return boolean success Whether the text was sent
+function M.send_to_terminal(text)
+    if not jobid or jobid <= 0 then
+        -- Try to open if not valid
+        if not is_valid() then
+            if not M.open() then
+                return false
+            end
+        end
+    end
+
+    -- Ensure we have a jobid after potential open
+    if jobid and jobid > 0 then
+        vim.api.nvim_chan_send(jobid, text)
+        return true
+    end
+
+    return false
+end
+
 return M
