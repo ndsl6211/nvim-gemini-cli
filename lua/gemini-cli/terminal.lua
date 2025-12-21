@@ -77,8 +77,6 @@ local function show_terminal(focus, style)
         return false
     end
 
-    local original_win = vim.api.nvim_get_current_win()
-
     -- If already visible, just focus if needed
     if is_visible() then
         if focus and winid then
@@ -100,10 +98,7 @@ local function show_terminal(focus, style)
     end
 
     if focus then
-        vim.api.nvim_set_current_win(winid)
         vim.cmd('startinsert')
-    else
-        vim.api.nvim_set_current_win(original_win)
     end
 
     return true
@@ -206,49 +201,29 @@ local function create_terminal(focus, style)
         end,
     })
 
-    if focus then
-        vim.api.nvim_set_current_win(winid)
-        vim.cmd('startinsert')
-    else
-        vim.api.nvim_set_current_win(original_win)
-    end
-
+    vim.cmd('startinsert')
     return true
 end
 
 ---Toggle terminal visibility
 ---@param style string|nil 'split' or 'float'
----@param focus_override boolean|nil Override the default focus_on_open config
-function M.toggle(style, focus_override)
-    local config = require('gemini-cli').config
-    local focus = focus_override
-    if focus == nil then
-        focus = config.focus_on_open
-    end
-
+function M.toggle(style)
     if is_visible() then
         hide_terminal()
     elseif is_valid() then
-        show_terminal(focus, style)
+        show_terminal(true, style)
     else
-        create_terminal(focus, style)
+        create_terminal(true, style)
     end
 end
 
 ---Open terminal (create or show)
 ---@param style string|nil 'split' or 'float'
----@param focus_override boolean|nil Override the default focus_on_open config
-function M.open(style, focus_override)
-    local config = require('gemini-cli').config
-    local focus = focus_override
-    if focus == nil then
-        focus = config.focus_on_open
-    end
-
+function M.open(style)
     if not is_valid() then
-        create_terminal(focus, style)
+        create_terminal(true, style)
     else
-        show_terminal(focus, style)
+        show_terminal(true, style)
     end
 end
 
@@ -310,19 +285,17 @@ end
 ---@param text string The text to send
 ---@return boolean success Whether the text was sent
 function M.send_to_terminal(text)
-    local config = require('gemini-cli').config
-    local focus = config.focus_on_send
-
-    -- Ensure it's visible (Auto Toggle On)
-    if not is_visible() then
-        -- Open with potential focus based on config
-        M.open(nil, focus)
+    if not jobid or jobid <= 0 then
+        -- Try to open if not valid
+        if not is_valid() then
+            if not M.open() then
+                return false
+            end
+        end
     end
 
-    -- jobid should be updated by M.open -> create_terminal
+    -- Ensure we have a jobid after potential open
     if jobid and jobid > 0 then
-        -- Small delay might be needed for very first termopen,
-        -- but termopen is usually ready for chan_send immediately.
         vim.api.nvim_chan_send(jobid, text)
         return true
     end

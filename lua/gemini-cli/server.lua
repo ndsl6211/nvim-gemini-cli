@@ -5,9 +5,12 @@
 
 ---@module 'gemini-cli.server'
 local M = {}
+local log = require('gemini-cli.log')
 
 local job_id = nil
 local server_port = nil
+local auth_token = nil
+local workspace_path = nil
 local rpc_socket = nil
 
 -- Get the path to the MCP server binary
@@ -31,7 +34,6 @@ end
 ---Start the MCP server
 function M.start()
     if job_id then
-        local log = require('gemini-cli.log')
         log.warn('Gemini MCP server is already running')
         return
     end
@@ -43,7 +45,6 @@ function M.start()
     -- Start Neovim's RPC server
     local rpc_server = vim.fn.serverstart(rpc_socket)
     if rpc_server == '' then
-        local log = require('gemini-cli.log')
         log.error('Failed to start Neovim RPC server')
         return
     end
@@ -54,7 +55,6 @@ function M.start()
 
     -- Check if server binary exists
     if vim.fn.executable(server_path) ~= 1 then
-        local log = require('gemini-cli.log')
         log.error('Gemini MCP server binary not found at: ' .. server_path)
         log.info('Please run: cd server && go build -o ../bin/gemini-mcp-server')
         return
@@ -121,7 +121,6 @@ function M.on_ready(port, token, workspace)
     auth_token = token
     workspace_path = workspace
 
-    local log = require('gemini-cli.log')
     log.debug(string.format('Gemini MCP server ready (Port: %d, Token: %s, Workspace: %s)',
         port,
         token:sub(1, 8) .. '...',
@@ -156,7 +155,6 @@ function M.stop()
     end
     rpc_socket = nil
 
-    local log = require('gemini-cli.log')
     log.info('Gemini MCP server stopped')
 end
 
