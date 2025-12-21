@@ -14,6 +14,8 @@ local M = {}
 ---@field max_open_files number Maximum number of open files to track (default: 10)
 ---@field allow_w_to_accept boolean Allow :w in diff window to accept changes (default: false)
 ---@field setup_keymaps boolean Automatically setup default keymaps (default: true)
+---@field focus_on_open boolean Focus Gemini terminal when opened via command/keymap (default: true)
+---@field focus_on_send boolean Focus Gemini terminal when automatically opened by GeminiSend (default: false)
 local config = {
   auto_start = true,
   log_level = 'info',
@@ -21,6 +23,8 @@ local config = {
   max_open_files = 10,
   allow_w_to_accept = true, -- Default to true as per user preference
   setup_keymaps = true,
+  focus_on_open = true,
+  focus_on_send = false,
 }
 
 M.config = config
@@ -50,10 +54,18 @@ function M.setup(opts)
     require('gemini-cli.server').stop()
   end, {})
 
-  vim.api.nvim_create_user_command('GeminiChat', function()
-    require('gemini-cli.terminal').toggle()
+  vim.api.nvim_create_user_command('GeminiChat', function(opts)
+    local style = nil
+    if opts.args ~= '' then
+      style = opts.args:match('^%s*(%S+)')
+    end
+    require('gemini-cli.terminal').toggle(style)
   end, {
-    desc = 'Toggle Gemini CLI chat terminal'
+    nargs = '?',
+    desc = 'Toggle Gemini CLI chat terminal (optional style: split|float)',
+    complete = function()
+      return { 'split', 'float' }
+    end
   })
 
   vim.api.nvim_create_user_command('GeminiSend', function(opts)
@@ -138,11 +150,17 @@ end
 
 ---Setup <Plug> mappings and default keymaps
 function M.setup_mappings()
-  -- Define <Plug> mappings
-  -- These act as a stable interface for users to map to
+  -- We use Lua functions directly instead of string commands (e.g. ':GeminiChat<CR>')
+  -- to provide a cleaner UI experience (no command-line flickering) and better
+  -- performance. For GeminiSend, this also prevents the ':<,'> from appearing.
+  -- Define <Plug> mappings as a stable interface for users.
   vim.keymap.set('n', '<Plug>(GeminiChat)', function()
     require('gemini-cli.terminal').toggle()
-  end, { desc = 'Toggle Gemini Chat' })
+  end, { desc = 'Toggle Gemini Chat (Split)' })
+
+  vim.keymap.set('n', '<Plug>(GeminiChatFloat)', function()
+    require('gemini-cli.terminal').toggle('float')
+  end, { desc = 'Toggle Gemini Chat (Float)' })
 
   vim.keymap.set('n', '<Plug>(GeminiStatus)', function()
     require('gemini-cli.server').status()
@@ -160,13 +178,8 @@ function M.setup_mappings()
     local mode = vim.api.nvim_get_mode().mode
     local range = nil
     if mode:match('^[vV\22]') then
-      -- Get visual range
-      -- Note: getpos("v") and getpos(".") are only updated after leaving visual mode
-      -- or during an active mapping that triggers with 'v' if handled carefully.
-      -- However, when calling a function from a mapping, we can use '<,'>
-      -- But since we are already in a Lua function, let's use a simpler approach:
-      -- Just trigger the command which handles ranges correctly.
-      vim.cmd('normal! \27') -- Escape to update marks
+      -- Visual mode needs an explicit exit (Escape) to update the '< and '> marks
+      vim.cmd('normal! \27')
       local start_line = vim.fn.getpos("'<")[2]
       local end_line = vim.fn.getpos("'>")[2]
       range = { start_line, end_line }
@@ -178,7 +191,11 @@ function M.setup_mappings()
   if config.setup_keymaps then
     -- <leader>gc for Chat
     if vim.fn.mapcheck('<leader>gc', 'n') == '' then
-      vim.keymap.set('n', '<leader>gc', '<Plug>(GeminiChat)', { remap = true, desc = 'Gemini Chat' })
+      vim.keymap.set('n', '<leader>gc', '<Plug>(GeminiChat)', { remap = true, desc = 'Gemini Chat (Split)' })
+    end
+    -- <leader>gf for Float
+    if vim.fn.mapcheck('<leader>gf', 'n') == '' then
+      vim.keymap.set('n', '<leader>gf', '<Plug>(GeminiChatFloat)', { remap = true, desc = 'Gemini Chat (Float)' })
     end
 
     -- <leader>gs for Status
