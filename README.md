@@ -5,6 +5,7 @@ A Neovim plugin that enables seamless integration with [Google's Gemini CLI](htt
 ## Features
 
 - 🔄 **Real-time Context Awareness**: Automatically shares your current file, cursor position, and selection with Gemini CLI
+- 🪟 **Floating Window Support**: Toggle chat in a native Neovim floating window or a traditional side split
 - 📝 **Native Diff Support**: Review and apply AI-suggested code changes directly in Neovim with side-by-side diff view
 - ⌨️ **Flexible Acceptance**: Accept diffs via `:w` in Neovim or through Gemini CLI prompts
 - 🚀 **Standard MCP Protocol**: Built on the Model Context Protocol over HTTP
@@ -88,7 +89,8 @@ The plugin provides customizable keymaps via `<Plug>` mappings and Lua functions
 
 If `setup_keymaps = true` (default), the following mappings are created:
 
-- `<leader>gc` : Toggle Gemini Chat terminal
+- `<leader>gc` : Toggle Gemini Chat terminal (Split)
+- `<leader>gf` : Toggle Gemini Chat terminal (Float)
 - `<leader>ga` : Send current file or selection to Gemini (Send/Append)
 - `<leader>gs` : Show Gemini Status
 
@@ -113,6 +115,7 @@ vim.keymap.set('n', '<C-g>', '<Plug>(GeminiChat)')
 Available `<Plug>` mappings:
 
 - `<Plug>(GeminiChat)`
+- `<Plug>(GeminiChatFloat)`
 - `<Plug>(GeminiSend)`
 - `<Plug>(GeminiStatus)`
 - `<Plug>(GeminiRestart)`
@@ -142,6 +145,12 @@ require('gemini-cli').setup({
 
   -- Automatically setup default keymaps (<leader>gc, <leader>gs)
   setup_keymaps = true,
+
+  -- Focus Gemini terminal when opened via command/keymap (default: true)
+  focus_on_open = true,
+
+  -- Focus Gemini terminal when automatically opened by GeminiSend (default: false)
+  focus_on_send = false,
 })
 ```
 
@@ -157,6 +166,20 @@ Controls how you accept diff changes:
 Choose based on your workflow:
 - Set to `false` if you want explicit control via CLI
 - Set to `true` for a streamlined Neovim-centric workflow
+
+#### `focus_on_open`
+
+Controls whether the Gemini terminal window gains focus when it is opened via `:GeminiChat` or the `<leader>gc`/`<leader>gf` keymaps.
+
+- `true` (default): Focus moves to the terminal immediately and enters `Insert` mode.
+- `false`: The terminal opens but your cursor stay in the current buffer.
+
+#### `focus_on_send`
+
+Controls whether the Gemini terminal window gains focus when it is **automatically** opened by a context send command (`:GeminiSend` or `<leader>ga`).
+
+- `true`: Focus moves to the terminal.
+- `false` (default): Focus stays in your code, allows you to send multiple references conveniently.
 
 ## How It Works
 
