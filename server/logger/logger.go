@@ -1,3 +1,4 @@
+// Package logger provides a simple leveled logging system for the Gemini MCP server.
 package logger
 
 import (
@@ -21,8 +22,8 @@ const (
 )
 
 var (
-	currentLevel LogLevel = INFO
-	levelNames            = map[LogLevel]string{
+	currentLevel = INFO
+	levelNames   = map[LogLevel]string{
 		DEBUG: "DEBUG",
 		INFO:  "INFO",
 		WARN:  "WARN",

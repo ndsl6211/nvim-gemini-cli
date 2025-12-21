@@ -1,3 +1,4 @@
+// Package mcp implements the Model Context Protocol server for Gemini CLI.
 package mcp
 
 import (
@@ -23,7 +24,7 @@ func (s *Server) HandleSSE(w http.ResponseWriter, r *http.Request) {
 
 	if authHeader != expectedAuth {
 		// For SSE, we need to send an error event, not use http.Error
-		fmt.Fprintf(w, "event: error\ndata: {\"error\":\"Unauthorized\"}\n\n")
+		_, _ = fmt.Fprintf(w, "event: error\ndata: {\"error\":\"Unauthorized\"}\n\n")
 		if f, ok := w.(http.Flusher); ok {
 			f.Flush()
 		}
@@ -53,14 +54,14 @@ func (s *Server) HandleSSE(w http.ResponseWriter, r *http.Request) {
 	// Get Flusher for SSE
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		fmt.Fprintf(w, "event: error\ndata: {\"error\":\"Streaming unsupported\"}\n\n")
+		_, _ = fmt.Fprintf(w, "event: error\ndata: {\"error\":\"Streaming unsupported\"}\n\n")
 		return
 	}
 
 	log.Printf("SSE client connected")
 
 	// Send an initial comment to keep connection alive
-	fmt.Fprintf(w, ": connected\n\n")
+	_, _ = fmt.Fprintf(w, ": connected\n\n")
 	flusher.Flush()
 
 	// Send notifications to client
@@ -75,7 +76,7 @@ func (s *Server) HandleSSE(w http.ResponseWriter, r *http.Request) {
 				log.Printf("Failed to marshal notification: %v", err)
 				continue
 			}
-			fmt.Fprintf(w, "data: %s\n\n", data)
+			_, _ = fmt.Fprintf(w, "data: %s\n\n", data)
 			flusher.Flush()
 		}
 	}

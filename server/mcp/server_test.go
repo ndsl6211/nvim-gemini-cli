@@ -14,7 +14,7 @@ func TestAuthMiddleware(t *testing.T) {
 		authToken: authToken,
 	}
 
-	handler := s.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := s.AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
 

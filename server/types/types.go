@@ -1,4 +1,5 @@
-package types
+// Package types defines the data structures used across the Gemini MCP server and its clients.
+package types //nolint:revive
 
 // IdeContext represents the current state of the IDE
 type IdeContext struct {

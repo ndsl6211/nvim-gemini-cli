@@ -1,3 +1,4 @@
+// Package nvim provides a client for communicating with Neovim via RPC.
 package nvim
 
 import (
@@ -102,7 +103,7 @@ func (c *Client) GetContext() (*types.IdeContext, error) {
 
 // RegisterCallbacks registers Lua callbacks for notifications
 func (c *Client) RegisterCallbacks(
-	onContextUpdate func(*types.IdeContext),
+	_ func(*types.IdeContext),
 	onDiffAccepted func(string, string),
 	onDiffRejected func(string),
 ) error {
@@ -110,7 +111,7 @@ func (c *Client) RegisterCallbacks(
 	// These will be exposed as global functions
 
 	// Context update callback
-	c.nvim.RegisterHandler("gemini_context_update", func(args ...interface{}) error {
+	_ = c.nvim.RegisterHandler("gemini_context_update", func(args ...interface{}) error {
 		if len(args) > 0 {
 			// Parse context from args
 			// This is simplified; implement proper parsing
@@ -121,7 +122,7 @@ func (c *Client) RegisterCallbacks(
 	})
 
 	// Diff accepted callback
-	c.nvim.RegisterHandler("gemini_diff_accepted", func(args ...interface{}) error {
+	_ = c.nvim.RegisterHandler("gemini_diff_accepted", func(args ...interface{}) error {
 		if len(args) >= 2 {
 			filePath, _ := args[0].(string)
 			content, _ := args[1].(string)
@@ -132,7 +133,7 @@ func (c *Client) RegisterCallbacks(
 	})
 
 	// Diff rejected callback
-	c.nvim.RegisterHandler("gemini_diff_rejected", func(args ...interface{}) error {
+	_ = c.nvim.RegisterHandler("gemini_diff_rejected", func(args ...interface{}) error {
 		if len(args) >= 1 {
 			filePath, _ := args[0].(string)
 			logger.Info("Diff rejected: %s", filePath)

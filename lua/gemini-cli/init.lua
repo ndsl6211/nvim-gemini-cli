@@ -65,7 +65,7 @@ function M.setup(opts)
     desc = 'Toggle Gemini CLI chat terminal (optional style: split|float)',
     complete = function()
       return { 'split', 'float' }
-    end
+    end,
   })
 
   vim.api.nvim_create_user_command('GeminiSend', function(opts)
@@ -76,7 +76,7 @@ function M.setup(opts)
     M.send_context(range)
   end, {
     range = true,
-    desc = 'Send selection or current file context to Gemini CLI'
+    desc = 'Send selection or current file context to Gemini CLI',
   })
 end
 
@@ -131,16 +131,16 @@ function M.send_context(range)
   end
 
   -- Format as @path#Lx-y (Always range-style or single line if start==end)
-  local ref = "@" .. rel_path
+  local ref = '@' .. rel_path
   if start_line then
-    ref = ref .. string.format("#L%d", start_line)
+    ref = ref .. string.format('#L%d', start_line)
     if start_line ~= end_line then
-      ref = ref .. string.format("-%d", end_line)
+      ref = ref .. string.format('-%d', end_line)
     end
   end
 
   -- Send to terminal (with a space at the end)
-  local success = require('gemini-cli.terminal').send_to_terminal(ref .. " ")
+  local success = require('gemini-cli.terminal').send_to_terminal(ref .. ' ')
   if success then
     vim.notify(string.format('Sent reference %s to Gemini', rel_path), vim.log.levels.INFO)
   else

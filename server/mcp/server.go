@@ -1,3 +1,4 @@
+// Package mcp implements the Model Context Protocol server for Gemini CLI.
 package mcp
 
 import (
@@ -276,7 +277,7 @@ func (s *Server) handleInitialize(w http.ResponseWriter, req *types.MCPRequest) 
 		},
 	}
 
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // handleToolsList handles MCP tools/list request
@@ -314,7 +315,7 @@ func (s *Server) handleToolsList(w http.ResponseWriter, req *types.MCPRequest) {
 		},
 	}
 
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // handleToolsCall handles MCP tools/call request
@@ -355,7 +356,7 @@ func (s *Server) handleToolsCall(w http.ResponseWriter, req *types.MCPRequest) {
 		Result:  result,
 	}
 
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }
 
 // SendNotification sends an MCP notification
@@ -414,5 +415,5 @@ func (s *Server) sendError(w http.ResponseWriter, id interface{}, code int, mess
 			Message: message,
 		},
 	}
-	json.NewEncoder(w).Encode(response)
+	_ = json.NewEncoder(w).Encode(response)
 }

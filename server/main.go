@@ -1,3 +1,4 @@
+// Package main is the entry point for the Gemini MCP server.
 package main
 
 import (
@@ -42,7 +43,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect to Neovim: %v", err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 
 	// Create Neovim client
 	v, err := nvimclient.New(conn, conn, conn, nil)
@@ -115,9 +116,9 @@ func main() {
 	// Set up HTTP handlers
 	http.HandleFunc("/mcp", mcpServer.AuthMiddleware(mcpServer.HandleMCP))
 	http.HandleFunc("/events", mcpServer.HandleSSE) // Auth handled internally
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/health", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("OK"))
+		_, _ = w.Write([]byte("OK"))
 	})
 
 	// Goroutine: Monitor Parent PID (Double safety for :qa)
@@ -284,7 +285,7 @@ func getParentPid(pid int) int {
 	}
 
 	var ppid int
-	fmt.Sscanf(fields[1], "%d", &ppid)
+	_, _ = fmt.Sscanf(fields[1], "%d", &ppid)
 	return ppid
 }
 
@@ -336,11 +337,7 @@ func findNvimChildProcesses(parentPid int) []int {
 			continue
 		}
 
-		// Fields after the comm field
-		fields := make([]string, 0)
-		for _, field := range strings.Fields(statStr[lastParen+1:]) {
-			fields = append(fields, field)
-		}
+		fields := strings.Fields(statStr[lastParen+1:])
 
 		if len(fields) < 2 {
 			continue
@@ -374,7 +371,7 @@ func findNvimChildProcesses(parentPid int) []int {
 	return childPids
 }
 
-func removeDiscoveryFile(pid, port int, workspacePath string) {
+func removeDiscoveryFile(pid, port int, _ string) {
 	tmpDir := os.TempDir()
 	geminiDir := filepath.Join(tmpDir, "gemini", "ide")
 
@@ -413,11 +410,4 @@ func removeDiscoveryFile(pid, port int, workspacePath string) {
 			log.Printf("Removed child discovery file: %s (PID %d)", childPath, childPid)
 		}
 	}
-}
-
-func getPathSeparator() string {
-	if runtime.GOOS == "windows" {
-		return ";"
-	}
-	return ":"
 }
