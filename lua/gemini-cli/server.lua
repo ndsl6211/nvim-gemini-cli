@@ -108,6 +108,7 @@ function M.start()
     if job_id <= 0 then
         log.error('Failed to start Gemini MCP server')
         job_id = nil
+        rpc_socket = nil
     end
 end
 
@@ -126,13 +127,20 @@ function M.on_ready(port, token, workspace)
         token:sub(1, 8) .. '...',
         workspace
     ))
+
+    -- Trigger terminal restart if it's open to pick up new port/token
+    vim.schedule(function()
+        local terminal = require('gemini-cli.terminal')
+        if terminal.is_open() then
+            log.info('Server restarted, refreshing Gemini terminal...')
+            terminal.restart()
+        end
+    end)
 end
 
 ---Stop the MCP server
 function M.stop()
     if not job_id then
-        local log = require('gemini-cli.log')
-        log.warn('Gemini MCP server is not running')
         return
     end
 

@@ -56,7 +56,10 @@ func main() {
 	// Goroutine: Serve Neovim RPC (if connection dies, we shutdown)
 	go func() {
 		if err := v.Serve(); err != nil {
-			log.Printf("Neovim client serve ended with error: %v", err)
+			// Silence "use of closed network connection" error during shutdown
+			if !strings.Contains(err.Error(), "use of closed network connection") {
+				log.Printf("Neovim client serve ended with error: %v", err)
+			}
 		} else {
 			log.Printf("Neovim client serve ended")
 		}
