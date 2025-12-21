@@ -33,16 +33,14 @@ For detailed architecture information, see [docs/architecture.md](docs/architect
 
 ```lua
 {
-  'nvim-gemini-cli',
-  dir = '/path/to/nvim-gemini-cli',
+  'ndsl6211/nvim-gemini-cli',
   build = 'cd server && go build -o ../bin/gemini-mcp-server',
   config = function()
     require('gemini-cli').setup({
-      -- Auto-setup default keymaps (<leader>gc, <leader>gs)
+      -- Auto-setup default keymaps (<leader>gc, <leader>gs, <leader>gf, <leader>ga)
       setup_keymaps = true,
       -- Set to true to accept diffs with :w in the diff window
       allow_w_to_accept = true,
-      log_level = 'info',
     })
   end,
 }
@@ -52,11 +50,11 @@ For detailed architecture information, see [docs/architecture.md](docs/architect
 
 ```lua
 use {
-  'nvim-gemini-cli',
+  'ndsl6211/nvim-gemini-cli',
+  run = 'cd server && go build -o ../bin/gemini-mcp-server',
   config = function()
     require('gemini-cli').setup()
-  end,
-  run = 'cd server && go build -o ../bin/gemini-mcp-server'
+  end
 }
 ```
 
@@ -65,7 +63,7 @@ use {
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/yourusername/nvim-gemini-cli.git ~/.config/nvim/pack/plugins/start/nvim-gemini-cli
+   git clone https://github.com/ndsl6211/nvim-gemini-cli.git ~/.config/nvim/pack/plugins/start/nvim-gemini-cli
    ```
 
 2. Build the MCP server:
@@ -214,6 +212,10 @@ Contributions are welcome! Please see [docs/development.md](docs/development.md)
 - Code style guidelines
 - How to submit pull requests
 
+## Credits
+
+This plugin's implementation is inspired by [claudecode.nvim](https://github.com/coder/claudecode.nvim) and follows the [Gemini CLI IDE Companion Specification](https://github.com/google-gemini/gemini-cli/blob/main/docs/ide-integration/ide-companion-spec.md).
+
 ## License
 
 MIT
@@ -222,3 +224,4 @@ MIT
 
 - [Gemini CLI](https://github.com/google-gemini/gemini-cli)
 - [Model Context Protocol](https://modelcontextprotocol.io/)
+- [claudecode.nvim](https://github.com/coder/claudecode.nvim)
