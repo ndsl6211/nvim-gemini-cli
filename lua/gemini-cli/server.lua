@@ -221,38 +221,40 @@ function M.status()
 
       -- Get parent PID for correct labeling
       local parent_pid = nil
-      local stat_file = '/proc/' .. pid .. '/stat'
-      if vim.fn.filereadable(stat_file) == 1 then
-        local stat_content = vim.fn.readfile(stat_file)
-        if #stat_content > 0 then
-          -- Parse PPID from stat file: PID (comm) state PPID ...
-          local stat_line = stat_content[1]
-          local after_comm = stat_line:match('%)%s+(.+)')
-          if after_comm then
-            local fields = {}
-            for field in after_comm:gmatch('%S+') do
-              table.insert(fields, field)
-            end
-            if #fields >= 2 then
-              parent_pid = tonumber(fields[2])
+      if vim.fn.has('linux') == 1 then
+        -- Linux: read from /proc
+        local stat_file = '/proc/' .. pid .. '/stat'
+        if vim.fn.filereadable(stat_file) == 1 then
+          local stat_content = vim.fn.readfile(stat_file)
+          if #stat_content > 0 then
+            -- Parse PPID from stat file: PID (comm) state PPID ...
+            local stat_line = stat_content[1]
+            local after_comm = stat_line:match('%)%s+(.+)')
+            if after_comm then
+              local fields = {}
+              for field in after_comm:gmatch('%S+') do
+                table.insert(fields, field)
+              end
+              if #fields >= 2 then
+                parent_pid = tonumber(fields[2])
+              end
             end
           end
         end
+      elseif vim.fn.has('mac') == 1 then
+        -- macOS: use ps command
+        local result = vim.system({ 'ps', '-o', 'ppid=', '-p', tostring(pid) }):wait()
+        if result.code == 0 and result.stdout then
+          parent_pid = tonumber(vim.trim(result.stdout))
+        end
       end
 
-      -- Check for other related discovery files
-      local pattern = string.format('gemini-ide-server-*-%d.json', server_port)
-      local files = vim.fn.glob(discovery_dir .. '/' .. pattern, false, true)
-
-      for _, file in ipairs(files) do
-        -- Extract PID from filename
-        local file_pid = file:match('gemini%-ide%-server%-(%d+)%-')
-        if file_pid and tonumber(file_pid) ~= pid then
-          local label = '[child]'
-          if parent_pid and tonumber(file_pid) == parent_pid then
-            label = '[parent]'
-          end
-          table.insert(status_msg, '    ' .. label .. ' ' .. file .. ' (PID ' .. file_pid .. ')')
+      -- Check for parent discovery file
+      if parent_pid then
+        local parent_file = string.format('gemini-ide-server-%d-%d.json', parent_pid, server_port)
+        local parent_path = discovery_dir .. '/' .. parent_file
+        if vim.fn.filereadable(parent_path) == 1 then
+          table.insert(status_msg, '    [parent] ' .. parent_path)
         end
       end
     end

@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"runtime"
@@ -223,32 +224,36 @@ func createDiscoveryFile(pid, port int, workspacePath, authToken string) error {
 	}
 	log.Printf("Created discovery file: %s", mainFilepath)
 
-	// CRITICAL FIX: Also create discovery file for parent process
+	// Also create discovery file for parent process if it's a nvim process
 	// When Neovim is run directly, vim.fn.getpid() may return nvim --embed PID,
 	// but gemini-cli finds the parent nvim PID. We need files for both.
 	parentPid := getParentPid(pid)
-	if parentPid > 0 && parentPid != pid {
-		parentFilename := fmt.Sprintf("gemini-ide-server-%d-%d.json", parentPid, port)
-		parentFilepath := filepath.Join(geminiDir, parentFilename)
+	log.Printf("Debug: Current PID=%d, Parent PID=%d", pid, parentPid)
 
-		if err := os.WriteFile(parentFilepath, data, 0644); err != nil {
-			log.Printf("Warning: failed to create discovery file for parent PID %d: %v", parentPid, err)
+	if parentPid > 0 {
+		log.Printf("Debug: parentPid > 0: true")
+		if parentPid != pid {
+			log.Printf("Debug: parentPid != pid: true")
+			isNvim := isNvimProcess(parentPid)
+			log.Printf("Debug: isNvimProcess(%d) = %v", parentPid, isNvim)
+
+			if isNvim {
+				parentFilename := fmt.Sprintf("gemini-ide-server-%d-%d.json", parentPid, port)
+				parentFilepath := filepath.Join(geminiDir, parentFilename)
+
+				if err := os.WriteFile(parentFilepath, data, 0644); err != nil {
+					log.Printf("Warning: failed to create discovery file for parent PID %d: %v", parentPid, err)
+				} else {
+					log.Printf("Created discovery file for parent process: %s (PID %d)", parentFilepath, parentPid)
+				}
+			} else {
+				log.Printf("Debug: Skipping parent discovery file - parent is not a nvim process")
+			}
 		} else {
-			log.Printf("Created discovery file for parent process: %s (PID %d)", parentFilepath, parentPid)
+			log.Printf("Debug: Skipping parent discovery file - parentPid == pid")
 		}
-	}
-
-	// Also create for child processes (nvim --embed children of main nvim)
-	childPids := findNvimChildProcesses(pid)
-	for _, childPid := range childPids {
-		childFilename := fmt.Sprintf("gemini-ide-server-%d-%d.json", childPid, port)
-		childFilepath := filepath.Join(geminiDir, childFilename)
-
-		if err := os.WriteFile(childFilepath, data, 0644); err != nil {
-			log.Printf("Warning: failed to create discovery file for child PID %d: %v", childPid, err)
-		} else {
-			log.Printf("Created discovery file for child process: %s (PID %d)", childFilepath, childPid)
-		}
+	} else {
+		log.Printf("Debug: Skipping parent discovery file - parentPid <= 0")
 	}
 
 	return nil
@@ -256,75 +261,14 @@ func createDiscoveryFile(pid, port int, workspacePath, authToken string) error {
 
 // getParentPid gets the parent PID of the given process
 func getParentPid(pid int) int {
-	if runtime.GOOS != "linux" {
-		return 0
-	}
-
-	statPath := filepath.Join("/proc", fmt.Sprintf("%d", pid), "stat")
-	statData, err := os.ReadFile(statPath)
-	if err != nil {
-		return 0
-	}
-
-	// Parse stat file to get PPID
-	statStr := string(statData)
-	lastParen := -1
-	for i := len(statStr) - 1; i >= 0; i-- {
-		if statStr[i] == ')' {
-			lastParen = i
-			break
-		}
-	}
-	if lastParen == -1 {
-		return 0
-	}
-
-	fields := strings.Fields(statStr[lastParen+1:])
-	if len(fields) < 2 {
-		return 0
-	}
-
-	var ppid int
-	_, _ = fmt.Sscanf(fields[1], "%d", &ppid)
-	return ppid
-}
-
-// findNvimChildProcesses finds all child processes of the given PID that are nvim processes
-func findNvimChildProcesses(parentPid int) []int {
-	var childPids []int
-
-	// On Linux, read /proc to find child processes
-	if runtime.GOOS != "linux" {
-		return childPids
-	}
-
-	procDir := "/proc"
-	entries, err := os.ReadDir(procDir)
-	if err != nil {
-		log.Printf("Warning: failed to read /proc: %v", err)
-		return childPids
-	}
-
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-
-		// Parse PID from directory name
-		var pid int
-		if _, err := fmt.Sscanf(entry.Name(), "%d", &pid); err != nil {
-			continue
-		}
-
-		// Read /proc/[pid]/stat to get parent PID
-		statPath := filepath.Join(procDir, entry.Name(), "stat")
+	if runtime.GOOS == "linux" {
+		statPath := filepath.Join("/proc", fmt.Sprintf("%d", pid), "stat")
 		statData, err := os.ReadFile(statPath)
 		if err != nil {
-			continue
+			return 0
 		}
 
-		// Parse stat file: PID (comm) state PPID ...
-		// comm can contain spaces and parentheses, so we need to find the last ')' first
+		// Parse stat file to get PPID
 		statStr := string(statData)
 		lastParen := -1
 		for i := len(statStr) - 1; i >= 0; i-- {
@@ -334,41 +278,58 @@ func findNvimChildProcesses(parentPid int) []int {
 			}
 		}
 		if lastParen == -1 {
-			continue
+			return 0
 		}
 
 		fields := strings.Fields(statStr[lastParen+1:])
-
 		if len(fields) < 2 {
-			continue
+			return 0
 		}
 
-		// PPID is the first field after state
 		var ppid int
-		if _, err := fmt.Sscanf(fields[1], "%d", &ppid); err != nil {
-			continue
+		_, _ = fmt.Sscanf(fields[1], "%d", &ppid)
+		return ppid
+	} else if runtime.GOOS == "darwin" {
+		// macOS: use ps command
+		cmd := fmt.Sprintf("ps -o ppid= -p %d", pid)
+		output, err := exec.Command("sh", "-c", cmd).Output()
+		if err != nil {
+			return 0
 		}
 
-		// Check if this process's parent is our target PID
-		if ppid == parentPid {
-			// Check if this is a nvim process
-			cmdlinePath := filepath.Join(procDir, entry.Name(), "cmdline")
-			cmdlineData, err := os.ReadFile(cmdlinePath)
-			if err != nil {
-				continue
-			}
-
-			cmdline := string(cmdlineData)
-			// Only match "nvim --embed" child processes, not any process containing "nvim"
-			if strings.Contains(cmdline, "nvim") && strings.Contains(cmdline, "--embed") {
-				childPids = append(childPids, pid)
-				log.Printf("Found nvim --embed child process: PID %d (parent: %d, cmdline: %s)",
-					pid, parentPid, strings.ReplaceAll(cmdline, "\x00", " "))
-			}
-		}
+		var ppid int
+		_, _ = fmt.Sscanf(strings.TrimSpace(string(output)), "%d", &ppid)
+		return ppid
 	}
 
-	return childPids
+	return 0
+}
+
+// isNvimProcess checks if the given PID is a nvim process
+func isNvimProcess(pid int) bool {
+	switch runtime.GOOS {
+	case "linux":
+		cmdlinePath := filepath.Join("/proc", fmt.Sprintf("%d", pid), "cmdline")
+		cmdlineData, err := os.ReadFile(cmdlinePath)
+		if err != nil {
+			return false
+		}
+
+		cmdline := string(cmdlineData)
+		return strings.Contains(cmdline, "nvim")
+	case "darwin":
+		// macOS: use ps command
+		cmd := fmt.Sprintf("ps -o comm= -p %d", pid)
+		output, err := exec.Command("sh", "-c", cmd).Output()
+		if err != nil {
+			return false
+		}
+
+		cmdline := strings.TrimSpace(string(output))
+		return strings.Contains(cmdline, "nvim")
+	}
+
+	return false
 }
 
 func removeDiscoveryFile(pid, port int, _ string) {
@@ -385,9 +346,9 @@ func removeDiscoveryFile(pid, port int, _ string) {
 		log.Printf("Removed discovery file: %s", mainPath)
 	}
 
-	// Remove parent PID discovery file
+	// Remove parent PID discovery file if it's a nvim process
 	parentPid := getParentPid(pid)
-	if parentPid > 0 && parentPid != pid {
+	if parentPid > 0 && parentPid != pid && isNvimProcess(parentPid) {
 		parentFilename := fmt.Sprintf("gemini-ide-server-%d-%d.json", parentPid, port)
 		parentPath := filepath.Join(geminiDir, parentFilename)
 
@@ -395,19 +356,6 @@ func removeDiscoveryFile(pid, port int, _ string) {
 			log.Printf("Warning: failed to remove parent discovery file (PID %d): %v", parentPid, err)
 		} else {
 			log.Printf("Removed parent discovery file: %s (PID %d)", parentPath, parentPid)
-		}
-	}
-
-	// Remove child PID discovery files
-	childPids := findNvimChildProcesses(pid)
-	for _, childPid := range childPids {
-		childFilename := fmt.Sprintf("gemini-ide-server-%d-%d.json", childPid, port)
-		childPath := filepath.Join(geminiDir, childFilename)
-
-		if err := os.Remove(childPath); err != nil {
-			log.Printf("Warning: failed to remove child discovery file (PID %d): %v", childPid, err)
-		} else {
-			log.Printf("Removed child discovery file: %s (PID %d)", childPath, childPid)
 		}
 	}
 }
