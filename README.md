@@ -216,10 +216,6 @@ Contributions are welcome! Please see [docs/development.md](docs/development.md)
 
 This plugin's implementation is inspired by [claudecode.nvim](https://github.com/coder/claudecode.nvim) and follows the [Gemini CLI IDE Companion Specification](https://github.com/google-gemini/gemini-cli/blob/main/docs/ide-integration/ide-companion-spec.md).
 
-## License
-
-MIT
-
 ## Related Projects
 
 - [Gemini CLI](https://github.com/google-gemini/gemini-cli)
