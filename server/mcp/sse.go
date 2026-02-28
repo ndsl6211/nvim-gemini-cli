@@ -7,6 +7,7 @@ import (
 	"gemini-cli/types"
 	"log"
 	"net/http"
+	"time"
 )
 
 // HandleSSE handles Server-Sent Events connections
@@ -64,12 +65,22 @@ func (s *Server) HandleSSE(w http.ResponseWriter, r *http.Request) {
 	_, _ = fmt.Fprintf(w, ": connected\n\n")
 	flusher.Flush()
 
+	// Create a ticker for heartbeats (every 15 seconds)
+	// This prevents intermediate proxies/clients from closing idle connections
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
+
 	// Send notifications to client
 	for {
 		select {
 		case <-r.Context().Done():
 			log.Printf("SSE client disconnected")
 			return
+		case <-ticker.C:
+			// Send an SSE comment (starting with ':') as a heartbeat
+			// This is ignored by standard SSE parsers but keeps the connection active
+			_, _ = fmt.Fprintf(w, ": keep-alive\n\n")
+			flusher.Flush()
 		case notif := <-notifChan:
 			data, err := json.Marshal(notif)
 			if err != nil {
