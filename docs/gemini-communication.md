@@ -62,7 +62,7 @@ The server responds:
 }
 ```
 
-### Notifications (Server-Sent Events)
+### Server-Sent Events
 
 The server can push notifications to Gemini CLI using SSE:
 
@@ -78,6 +78,10 @@ data: {"jsonrpc":"2.0","method":"notifications/context-update","params":{...}}
 
 data: {"jsonrpc":"2.0","method":"notifications/ide/diffAccepted","params":{...}}
 ```
+
+**Connection Stability (Heartbeat)**:
+To prevent intermediate proxies, firewalls, or the Gemini CLI client from closing the connection during idle periods, the server sends a "keep-alive" comment (`: keep-alive\n\n`) every 15 seconds. These comments are ignored by the MCP protocol parser but keep the TCP connection active.
+
 
 ## MCP Protocol
 
