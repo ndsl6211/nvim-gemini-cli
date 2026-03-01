@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"gemini-cli/logger"
 	"gemini-cli/types"
-	"log"
 	"net/http"
 	"time"
 )
