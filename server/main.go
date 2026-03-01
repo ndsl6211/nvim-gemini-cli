@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"os"
@@ -18,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"gemini-cli/logger"
 	"gemini-cli/mcp"
 	"gemini-cli/nvim"
 	"gemini-cli/types"
@@ -36,20 +36,20 @@ func main() {
 	flag.Parse()
 
 	if *nvimAddr == "" || *workspacePath == "" || *pid == 0 {
-		log.Fatal("Usage: gemini-mcp-server -nvim=<addr> -workspace=<path> -pid=<pid>")
+		logger.Fatal("Usage: gemini-mcp-server -nvim=<addr> -workspace=<path> -pid=<pid>")
 	}
 
 	// Connect to Neovim via unix socket
 	conn, err := net.Dial("unix", *nvimAddr)
 	if err != nil {
-		log.Fatalf("Failed to connect to Neovim: %v", err)
+		logger.Fatal("Failed to connect to Neovim: %v", err)
 	}
 	defer func() { _ = conn.Close() }()
 
 	// Create Neovim client
 	v, err := nvimclient.New(conn, conn, conn, nil)
 	if err != nil {
-		log.Fatalf("Failed to create Neovim client: %v", err)
+		logger.Fatal("Failed to create Neovim client: %v", err)
 	}
 
 	// Create shutdown channel
@@ -60,10 +60,10 @@ func main() {
 		if err := v.Serve(); err != nil {
 			// Silence "use of closed network connection" error during shutdown
 			if !strings.Contains(err.Error(), "use of closed network connection") {
-				log.Printf("Neovim client serve ended with error: %v", err)
+				logger.Error("Neovim client serve ended with error: %v", err)
 			}
 		} else {
-			log.Printf("Neovim client serve ended")
+			logger.Info("Neovim client serve ended")
 		}
 		shutdownChan <- "nvim-connection-closed"
 	}()
@@ -72,7 +72,7 @@ func main() {
 
 	// Generate auth token
 	authToken := uuid.New().String()
-	log.Printf("Auth token: %s", authToken)
+	logger.Info("Auth token: %s", authToken)
 
 	// Create MCP server
 	mcpServer := mcp.NewServer(authToken, nvimClient)
@@ -90,27 +90,27 @@ func main() {
 		},
 	)
 	if err != nil {
-		log.Fatalf("Failed to register callbacks: %v", err)
+		logger.Fatal("Failed to register callbacks: %v", err)
 	}
 
 	// Create HTTP server on random port
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		log.Fatalf("Failed to create listener: %v", err)
+		logger.Fatal("Failed to create listener: %v", err)
 	}
 	// We don't defer listener.Close() because http.Serve closes it, or we rely on Shutdown
 
 	port := listener.Addr().(*net.TCPAddr).Port
-	log.Printf("MCP server listening on port %d", port)
+	logger.Info("MCP server listening on port %d", port)
 
 	// Notify Neovim that server is ready via RPC
 	if err := nvimClient.NotifyReady(port, authToken, *workspacePath); err != nil {
-		log.Printf("Warning: failed to notify Neovim: %v", err)
+		logger.Info("Warning: failed to notify Neovim: %v", err)
 	}
 
 	// Create discovery file
 	if err := createDiscoveryFile(*pid, port, *workspacePath, authToken); err != nil {
-		log.Fatalf("Failed to create discovery file: %v", err)
+		logger.Fatal("Failed to create discovery file: %v", err)
 	}
 	// We handle removal manually on shutdown
 
@@ -150,26 +150,26 @@ func main() {
 	// Goroutine: Start HTTP server
 	go func() {
 		if err := httpServer.Serve(listener); err != nil && err != http.ErrServerClosed {
-			log.Printf("HTTP server error: %v", err)
+			logger.Error("HTTP server error: %v", err)
 			shutdownChan <- "http-server-error"
 		}
 	}()
 
 	// Wait for any shutdown signal
 	reason := <-shutdownChan
-	log.Printf("Shutting down (reason: %s)...", reason)
+	logger.Info("Shutting down (reason: %s)...", reason)
 
 	// Perform Cleanup
 	cleanupCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := httpServer.Shutdown(cleanupCtx); err != nil {
-		log.Printf("HTTP server shutdown error: %v", err)
+		logger.Error("HTTP server shutdown error: %v", err)
 	}
 
 	// Manually call removeDiscoveryFile
 	removeDiscoveryFile(*pid, port, *workspacePath)
-	log.Println("Server shutdown complete")
+	logger.Info("Server shutdown complete")
 }
 
 // isProcessAlive checks if a process with the given PID is running
@@ -222,38 +222,38 @@ func createDiscoveryFile(pid, port int, workspacePath, authToken string) error {
 	if err := os.WriteFile(mainFilepath, data, 0644); err != nil {
 		return fmt.Errorf("failed to write discovery file: %w", err)
 	}
-	log.Printf("Created discovery file: %s", mainFilepath)
+	logger.Info("Created discovery file: %s", mainFilepath)
 
 	// Also create discovery file for parent process if it's a nvim process
 	// When Neovim is run directly, vim.fn.getpid() may return nvim --embed PID,
 	// but gemini-cli finds the parent nvim PID. We need files for both.
 	parentPid := getParentPid(pid)
-	log.Printf("Debug: Current PID=%d, Parent PID=%d", pid, parentPid)
+	logger.Debug("Current PID=%d, Parent PID=%d", pid, parentPid)
 
 	if parentPid > 0 {
-		log.Printf("Debug: parentPid > 0: true")
+		logger.Debug("parentPid > 0: true")
 		if parentPid != pid {
-			log.Printf("Debug: parentPid != pid: true")
+			logger.Debug("parentPid != pid: true")
 			isNvim := isNvimProcess(parentPid)
-			log.Printf("Debug: isNvimProcess(%d) = %v", parentPid, isNvim)
+			logger.Debug("isNvimProcess(%d) = %v", parentPid, isNvim)
 
 			if isNvim {
 				parentFilename := fmt.Sprintf("gemini-ide-server-%d-%d.json", parentPid, port)
 				parentFilepath := filepath.Join(geminiDir, parentFilename)
 
 				if err := os.WriteFile(parentFilepath, data, 0644); err != nil {
-					log.Printf("Warning: failed to create discovery file for parent PID %d: %v", parentPid, err)
+					logger.Warn("Warning: failed to create discovery file for parent PID %d: %v", parentPid, err)
 				} else {
-					log.Printf("Created discovery file for parent process: %s (PID %d)", parentFilepath, parentPid)
+					logger.Info("Created discovery file for parent process: %s (PID %d)", parentFilepath, parentPid)
 				}
 			} else {
-				log.Printf("Debug: Skipping parent discovery file - parent is not a nvim process")
+				logger.Debug("Skipping parent discovery file - parent is not a nvim process")
 			}
 		} else {
-			log.Printf("Debug: Skipping parent discovery file - parentPid == pid")
+			logger.Debug("Skipping parent discovery file - parentPid == pid")
 		}
 	} else {
-		log.Printf("Debug: Skipping parent discovery file - parentPid <= 0")
+		logger.Debug("Skipping parent discovery file - parentPid <= 0")
 	}
 
 	return nil
@@ -341,9 +341,9 @@ func removeDiscoveryFile(pid, port int, _ string) {
 	mainPath := filepath.Join(geminiDir, mainFilename)
 
 	if err := os.Remove(mainPath); err != nil {
-		log.Printf("Warning: failed to remove discovery file: %v", err)
+		logger.Warn("Warning: failed to remove discovery file: %v", err)
 	} else {
-		log.Printf("Removed discovery file: %s", mainPath)
+		logger.Info("Removed discovery file: %s", mainPath)
 	}
 
 	// Remove parent PID discovery file if it's a nvim process
@@ -353,9 +353,9 @@ func removeDiscoveryFile(pid, port int, _ string) {
 		parentPath := filepath.Join(geminiDir, parentFilename)
 
 		if err := os.Remove(parentPath); err != nil {
-			log.Printf("Warning: failed to remove parent discovery file (PID %d): %v", parentPid, err)
+			logger.Warn("Warning: failed to remove parent discovery file (PID %d): %v", parentPid, err)
 		} else {
-			log.Printf("Removed parent discovery file: %s (PID %d)", parentPath, parentPid)
+			logger.Info("Removed parent discovery file: %s (PID %d)", parentPath, parentPid)
 		}
 	}
 }

@@ -4,11 +4,10 @@ package mcp
 import (
 	"encoding/json"
 	"fmt"
-	"log"
-	"net/http"
 	"strings"
 	"sync"
 
+	"gemini-cli/logger"
 	"gemini-cli/nvim"
 	"gemini-cli/types"
 )
@@ -240,7 +239,7 @@ func (s *Server) HandleMCP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("Received MCP request: %s (ID: %v)", req.Method, req.ID)
+	logger.Info("Received MCP request: %s (ID: %v)", req.Method, req.ID)
 
 	// Handle different MCP methods
 	switch req.Method {
@@ -322,7 +321,7 @@ func (s *Server) handleToolsList(w http.ResponseWriter, req *types.MCPRequest) {
 func (s *Server) handleToolsCall(w http.ResponseWriter, req *types.MCPRequest) {
 	toolName, ok := req.Params["name"].(string)
 	if !ok {
-		log.Printf("ERROR: Missing tool name in request")
+		logger.Error("Missing tool name in request")
 		s.sendError(w, req.ID, -32602, "Missing tool name")
 		return
 	}
@@ -332,7 +331,7 @@ func (s *Server) handleToolsCall(w http.ResponseWriter, req *types.MCPRequest) {
 	s.mu.RUnlock()
 
 	if !exists {
-		log.Printf("ERROR: Tool not found: %s", toolName)
+		logger.Error("Tool not found: %s", toolName)
 		s.sendError(w, req.ID, -32602, "Tool not found")
 		return
 	}
@@ -345,7 +344,7 @@ func (s *Server) handleToolsCall(w http.ResponseWriter, req *types.MCPRequest) {
 	// Call the tool handler
 	result, err := tool.Handler(args)
 	if err != nil {
-		log.Printf("ERROR: Tool handler failed for %s: %v", toolName, err)
+		logger.Error("Tool handler failed for %s: %v", toolName, err)
 		s.sendError(w, req.ID, -32603, err.Error())
 		return
 	}
@@ -375,7 +374,7 @@ func (s *Server) SendNotification(method string, params map[string]interface{}) 
 		case sub <- notification:
 			// Notification sent
 		default:
-			log.Printf("Warning: notification channel full for subscriber %d, dropping notification", i)
+			logger.Warn("Notification channel full for subscriber %d, dropping notification", i)
 		}
 	}
 }
