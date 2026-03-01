@@ -4,8 +4,8 @@ package mcp
 import (
 	"encoding/json"
 	"fmt"
+	"gemini-cli/logger"
 	"gemini-cli/types"
-	"log"
 	"net/http"
 	"time"
 )
@@ -59,7 +59,7 @@ func (s *Server) HandleSSE(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("SSE client connected")
+	logger.Info("SSE client connected")
 
 	// Send an initial comment to keep connection alive
 	_, _ = fmt.Fprintf(w, ": connected\n\n")
@@ -74,17 +74,18 @@ func (s *Server) HandleSSE(w http.ResponseWriter, r *http.Request) {
 	for {
 		select {
 		case <-r.Context().Done():
-			log.Printf("SSE client disconnected")
+			logger.Info("SSE client disconnected")
 			return
 		case <-ticker.C:
 			// Send an SSE comment (starting with ':') as a heartbeat
 			// This is ignored by standard SSE parsers but keeps the connection active
+			logger.Debug("Sent SSE heartbeat to keep connection alive")
 			_, _ = fmt.Fprintf(w, ": keep-alive\n\n")
 			flusher.Flush()
 		case notif := <-notifChan:
 			data, err := json.Marshal(notif)
 			if err != nil {
-				log.Printf("Failed to marshal notification: %v", err)
+				logger.Error("Failed to marshal notification: %v", err)
 				continue
 			}
 			_, _ = fmt.Fprintf(w, "data: %s\n\n", data)
